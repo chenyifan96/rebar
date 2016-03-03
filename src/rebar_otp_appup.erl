@@ -65,18 +65,22 @@ info(help, compile) ->
 info(help, clean) ->
     ?CONSOLE("Delete .appup file if generated from .appup.src", []).
 
-preprocess(SourceFile, TargetFile, _Config) ->
+preprocess(SourceFile, TargetFile, Config) ->
     %% Perform basic validation on the appup file
     %% i.e. if a consult succeeds and basic appup
     %% structure exists.
     case rebar_config:consult_file(SourceFile) of
         %% The .appup syntax is described in
         %% http://erlang.org/doc/man/appup.html.
-        {ok, [{_Vsn, UpFromVsn, DownToVsn} = AppUp]}
+        {ok, [{Vsn, UpFromVsn, DownToVsn}]}
           when is_list(UpFromVsn), is_list(DownToVsn) ->
+            Dir = filename:dirname(TargetFile),
+            {_NewConfig, VsnString} = rebar_utils:vcs_vsn(Config, parse_vsn(Vsn), Dir),
+            NewAppUp = replace_ver([{Vsn, UpFromVsn, DownToVsn}], VsnString),
+            %% io:format("wcy debug ~p~n", [{NewAppUp, Vsn, VsnString, SourceFile, TargetFile}]),
             case file:write_file(
                    TargetFile,
-                   lists:flatten(io_lib:format("~p.", [AppUp]))) of
+                   lists:flatten(io_lib:format("~p.", [NewAppUp]))) of
                 {error, Reason} ->
                     ?ABORT("Failed writing to target file ~s due to ~s",
                            [TargetFile, Reason]);
@@ -87,3 +91,20 @@ preprocess(SourceFile, TargetFile, _Config) ->
         _ ->
             ?ABORT("Failed to compile ~s, not an appup~n", [SourceFile])
     end.
+
+parse_vsn(Vsn)
+  when is_atom(Vsn) ->
+    parse_vsn(atom_to_list(Vsn));
+parse_vsn("$" ++ Name) ->
+    list_to_atom(Name).
+
+replace_ver('$git',X) ->
+    X;
+replace_ver(List, X)
+  when(is_list(List)) ->
+    lists:map(fun (E) -> replace_ver(E,X) end, List);
+replace_ver(Tuple, X)
+  when(is_tuple(Tuple)) ->
+    list_to_tuple(lists:map(fun (E) -> replace_ver(E,X) end, tuple_to_list(Tuple)));
+replace_ver(Other, _X) ->
+    Other.
