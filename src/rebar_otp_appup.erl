@@ -76,7 +76,7 @@ preprocess(SourceFile, TargetFile, Config) ->
           when is_list(UpFromVsn), is_list(DownToVsn) ->
             Dir = filename:dirname(TargetFile),
             {_NewConfig, VsnString} = rebar_utils:vcs_vsn(Config, Vsn, Dir),
-            NewAppUp = [{VsnString, UpFromVsn, DownToVsn}],
+            NewAppUp = {VsnString, UpFromVsn, DownToVsn},
             %% io:format("wcy debug ~p~n", [{NewAppUp, Vsn, VsnString, SourceFile, TargetFile}]),
             case file:write_file(
                    TargetFile,
